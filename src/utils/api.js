@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: 'https://attendance-app-backend-3mi7.onrender.com/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
