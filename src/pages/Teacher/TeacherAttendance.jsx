@@ -236,7 +236,7 @@ function Attendance() {
                   <span className="text-yellow-600 font-medium">Late: {lateCount}</span>
                 </div>
                 <p className="text-gray-700 font-medium text-base sm:text-lg">
-                  {filteredStudents.length} Total Students
+                  Total {filteredStudents.length} 
                 </p>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 lg:gap-3 w-full sm:w-auto">
                   <input
@@ -251,7 +251,7 @@ function Attendance() {
                     disabled={saving || isSubmitted}
                     className="bg-blue-600 flex items-center justify-center text-white px-4 sm:px-6 lg:px-8 py-2 lg:py-2.5 rounded-lg lg:rounded-xl hover:bg-blue-700 transition-colors active:scale-95 duration-200 cursor-pointer text-base sm:text-lg w-full sm:w-auto lg:h-[40px] lg:font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {saving ? 'Submitting...' : isSubmitted ? 'Submitted' : 'Submit All'}
+                    {saving ? 'Saving...' : isSubmitted ? 'Submitted' : 'Save '}
                   </button>
                 </div>
               </div>
