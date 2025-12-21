@@ -29,9 +29,11 @@ function TeacherHome() {
         try {
             // NOTE: Replace '/teacher/dashboard' with your actual API endpoint if different
             const response = await api.get('/teacher/dashboard');
+            console.log("DASHBOARD RESPONSE 👉", response.data);
             if (response.data.success) {
                 setDashboardData(response.data.data);
             }
+            console.log(dashboardData)
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
             // Optionally, set an error state to display to the user

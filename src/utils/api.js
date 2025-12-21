@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://attendance-app-backend-3mi7.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://attendance-app-backend-4.onrender.com/api',
   withCredentials: true, // Enable credentials for secure authentication
   timeout: 10000, // 10 second timeout
   headers: {
