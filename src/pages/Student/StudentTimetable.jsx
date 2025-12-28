@@ -27,9 +27,14 @@ function StudentTimetable() {
 
   const fetchTimetable = async () => {
     try {
-      const response = await api.get('/timetable?class_name=SE');
+      const response = await api.get('/timetable/student/weekly-timetable');
       if (response.data.success) {
-        setTimetableData(response.data.data);
+        // Transform the data to match the expected format
+        const transformedData = {
+          timetable: response.data.timetable,
+          timeSlots: response.data.timeSlots
+        };
+        setTimetableData(transformedData);
       }
     } catch (error) {
       console.error('Error fetching timetable:', error);
@@ -40,7 +45,16 @@ function StudentTimetable() {
 
   const getSubjectForSlot = (day, lectureNo) => {
     if (!timetableData?.timetable[day]) return null;
-    return timetableData.timetable[day][lectureNo] || null;
+    const slot = timetableData.timetable[day][lectureNo];
+    if (!slot) return null;
+    
+    return {
+      subject_name: slot.subject,
+      teacher_name: slot.teacher,
+      type: slot.type,
+      batch: slot.batch,
+      time: slot.time
+    };
   };
 
   const getCurrentLecture = () => {

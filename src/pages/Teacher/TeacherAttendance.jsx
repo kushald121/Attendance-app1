@@ -1,8 +1,10 @@
 // pages/Attendance.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import Sidebar from "../../components/Sidebar";
 import api from "../../utils/api";
+import { toast } from "react-toastify";
 
 function Attendance() {
   const now = new Date();
@@ -10,148 +12,247 @@ function Attendance() {
   const month = now.toLocaleString("default", { month: "long" });
   const day = now.toLocaleString("default", { weekday: "long" });
   const year = now.getFullYear();
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const today = new Date().toISOString().split('T')[0];
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [students, setStudents] = useState([]);
   const [attendanceData, setAttendanceData] = useState({});
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [saving, setSaving] = useState(false);
-  const [classFilter, setClassFilter] = useState("SE");
-  const [divFilter, setDivFilter] = useState("A");
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedTimetable, setSelectedTimetable] = useState(null);
   const [todaySchedule, setTodaySchedule] = useState([]);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedTimetables, setSubmittedTimetables] = useState({});
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchStudentsAndSchedule();
-  }, [classFilter, divFilter]);
+  // Fetch students and their attendance when timetable changes
+const fetchStudents = async (timetableId) => {
+  if (!timetableId) {
+    setStudents([]);
+    setAttendanceData({});
+    return;
+  }
 
-  useEffect(() => {
-    if (selectedSubject && selectedTimetable) {
-      fetchAttendanceData();
-    }
-  }, [selectedSubject, selectedTimetable]);
-
-  const fetchStudentsAndSchedule = async () => {
-    try {
-      const response = await api.get(`/teacher/students?class_name=${classFilter}&div=${divFilter}`);
-      if (response.data.success) {
-        console.log('Students and schedule response:', response.data.data);
-        setStudents(response.data.data.students);
-        setTodaySchedule(response.data.data.todaySchedule);
-        
-        // Auto-select first available lecture if available
-        if (response.data.data.todaySchedule.length > 0) {
-          const firstLecture = response.data.data.todaySchedule[0];
-          console.log('Auto-selecting first lecture:', firstLecture);
-          setSelectedSubject(firstLecture.subject_id);
-          setSelectedTimetable(firstLecture.timetable_id);
-        } else {
-          console.log('No lectures found for today');
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching students and schedule:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAttendanceData = async () => {
-    if (!selectedSubject || !selectedTimetable) return;
+  try {
+    setLoading(true);
     
-    try {
-      const response = await api.get(
-        `/teacher/attendance-data?attendance_date=${today}&class_name=${classFilter}&div=${divFilter}&subject_id=${selectedSubject}&timetable_id=${selectedTimetable}`
-      );
-      if (response.data.success) {
-        const attendanceMap = {};
-        let submitted = false;
-        response.data.data.forEach(record => {
+    const [studentsResponse, attendanceResponse] = await Promise.all([
+      api.get(`/teacher/students?timetable_id=${timetableId}`),
+      api.get(`/teacher/attendance-data?timetable_id=${timetableId}&attendance_date=${today}`)
+    ]);
+    
+    if (studentsResponse.data.success) {
+      const studentsData = studentsResponse.data.data;
+      setStudents(studentsData);
+      
+      const initialAttendance = {};
+      let isLectureSubmitted = false;
+      
+      if (attendanceResponse.data.success && attendanceResponse.data.data.length > 0) {
+        const attendanceRecords = attendanceResponse.data.data;
+        isLectureSubmitted = attendanceRecords.some(record => record.submitted);
+        
+        // Update submitted timetables state
+        if (isLectureSubmitted) {
+          setSubmittedTimetables(prev => ({
+            ...prev,
+            [timetableId]: true
+          }));
+        }
+        
+        attendanceRecords.forEach(record => {
           if (record.student_rollno) {
-            attendanceMap[record.student_rollno] = {
+            initialAttendance[record.student_rollno] = {
               status: record.status || 'Present',
-              submitted: record.submitted || false
+              submitted: record.submitted || isLectureSubmitted
             };
-            if (record.submitted) submitted = true;
           }
         });
-        setAttendanceData(attendanceMap);
-        setIsSubmitted(submitted);
       }
-    } catch (error) {
-      console.error('Error fetching attendance data:', error);
+      
+      studentsData.forEach(student => {
+        if (!initialAttendance[student.student_rollno]) {
+          initialAttendance[student.student_rollno] = {
+            status: 'Present',
+            submitted: false
+          };
+        }
+      });
+      
+      setAttendanceData(initialAttendance);
+    }
+  } catch (error) {
+    console.error('Error fetching students and attendance:', error);
+    if (error.response?.status === 401) {
+      navigate('/login');
+    } else {
+      toast.error('Failed to load student data');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // Fetch teacher's schedule when component mounts
+  useEffect(() => {
+    const fetchTeacherSchedule = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get('/teacher/dashboard');
+        
+        if (response.data.success) {
+          setTodaySchedule(response.data.data);
+          
+          // Auto-select the first lecture if available
+          if (response.data.data.length > 0) {
+            const firstLecture = response.data.data[0];
+            setSelectedTimetable(firstLecture.timetable_id);
+            setSelectedSubject({
+              subject_id: firstLecture.subject_id,
+              subject_name: firstLecture.subject_name
+            });
+            // Fetch students for the first lecture
+            await fetchStudents(firstLecture.timetable_id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching teacher schedule:', error);
+        if (error.response?.status === 401) {
+          navigate('/login');
+        } else {
+          toast.error('Failed to load schedule');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeacherSchedule();
+  }, []);
+
+  // Handle lecture selection change
+  const handleLectureChange = async (e) => {
+    const timetableId = parseInt(e.target.value);
+    const lecture = todaySchedule.find(l => l.timetable_id === timetableId);
+    
+    if (lecture) {
+      setSelectedTimetable(timetableId);
+      setSelectedSubject({
+        subject_id: lecture.subject_id,
+        subject_name: lecture.subject_name
+      });
+      await fetchStudents(timetableId);
     }
   };
+  
 
-  const markAttendance = async (studentRollno, status) => {
-    if (isSubmitted) {
-      alert('Attendance has already been submitted and cannot be changed.');
-      return;
-    }
+const markAttendance = async (studentRollno, status) => {
+  if (submittedTimetables[selectedTimetable]) {
+    toast.warning('Attendance for this lecture has already been submitted and cannot be changed.');
+    return;
+  }
 
-    if (!selectedSubject || !selectedTimetable) {
-      alert('Please select a lecture first');
-      return;
-    }
+  if (!selectedSubject || !selectedTimetable) {
+    toast.warning('Please select a lecture first');
+    return;
+  }
 
-    console.log('Marking attendance with:', {
+  try {
+    const response = await api.post('/teacher/attendance', {
       student_rollno: studentRollno,
-      subject_id: selectedSubject,
       timetable_id: selectedTimetable,
       status: status,
       attendance_date: today
     });
 
-    try {
-      const response = await api.post('/teacher/attendance', {
-        student_rollno: studentRollno,
-        subject_id: selectedSubject,
-        timetable_id: selectedTimetable,
-        status: status,
-        attendance_date: today
-      });
-
-      if (response.data.success) {
-        setAttendanceData(prev => ({
-          ...prev,
-          [studentRollno]: { ...prev[studentRollno], status }
-        }));
-      }
-    } catch (error) {
-      console.error('Error marking attendance:', error);
-      alert('Failed to mark attendance');
+    if (response.data.success) {
+      setAttendanceData(prev => ({
+        ...prev,
+        [studentRollno]: { 
+          ...prev[studentRollno], 
+          status: status,
+          submitted: false
+        }
+      }));
+      
+      toast.success('Attendance marked successfully');
+    } else {
+      throw new Error(response.data.message || 'Failed to mark attendance');
     }
-  };
+  } catch (error) {
+    console.error('Error marking attendance:', error);
+    if (error.response?.status === 401) {
+      navigate('/login');
+    } else if (error.response?.status === 400) {
+      toast.error(error.response.data.message || 'Cannot update attendance. It may have already been submitted.');
+    } else {
+      toast.error('Failed to mark attendance');
+    }
+  }
+};
 
   const saveAllAttendance = async () => {
-    if (isSubmitted) {
-      alert('Attendance has already been submitted.');
-      return;
-    }
+  if (submittedTimetables[selectedTimetable]) {
+    toast.warning('Attendance for this lecture has already been submitted.');
+    return;
+  }
 
+  if (!selectedTimetable) {
+    toast.warning('Please select a lecture first');
+    return;
+  }
+
+  const studentsWithoutAttendance = students.filter(
+    student => !attendanceData[student.student_rollno]?.status
+  );
+
+  if (studentsWithoutAttendance.length > 0) {
+    toast.warning(`Please mark attendance for all students before submitting. ${studentsWithoutAttendance.length} students remaining.`);
+    return;
+  }
+
+  try {
     setSaving(true);
-    try {
-      const response = await api.post('/teacher/submit', {
-        subject_id: selectedSubject,
-        timetable_id: selectedTimetable,
-        attendance_date: today
-      });
+    const response = await api.post('/teacher/submit', {
+      timetable_id: selectedTimetable,
+      attendance_date: today
+    });
 
-      if (response.data.success) {
-        setIsSubmitted(true);
-        alert('Attendance submitted successfully!');
-      }
-    } catch (error) {
-      console.error('Error submitting attendance:', error);
-      alert('Failed to submit attendance');
-    } finally {
-      setSaving(false);
+    if (response.data.success) {
+      // Update submitted timetables state
+      setSubmittedTimetables(prev => ({
+        ...prev,
+        [selectedTimetable]: true
+      }));
+
+      // Update all attendance records to show they're submitted
+      const updatedAttendance = { ...attendanceData };
+      Object.keys(updatedAttendance).forEach(rollno => {
+        updatedAttendance[rollno] = {
+          ...updatedAttendance[rollno],
+          submitted: true
+        };
+      });
+      setAttendanceData(updatedAttendance);
+      
+      toast.success('Attendance submitted and locked successfully!');
+    } else {
+      throw new Error(response.data.message || 'Failed to submit attendance');
     }
-  };
+  } catch (error) {
+    console.error('Error submitting attendance:', error);
+    if (error.response?.status === 401) {
+      navigate('/login');
+    } else if (error.response?.status === 400) {
+      toast.error(error.response.data.message || 'Cannot submit attendance. Please check the data and try again.');
+    } else {
+      toast.error('Failed to submit attendance. Please try again.');
+    }
+  } finally {
+    setSaving(false);
+  }
+};
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -195,37 +296,47 @@ function Attendance() {
           <div className="bg-white rounded-lg p-4 sm:p-6 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-2xl lg:text-3xl font-bold text-black">
-                  Daily Attendance {isSubmitted && <span className="text-green-600">(Submitted)</span>}
-                </h1>
+               <h1 className="text-2xl sm:text-2xl lg:text-3xl font-bold text-black">
+  Daily Attendance {submittedTimetables[selectedTimetable] && <span className="text-green-600">(Submitted)</span>}
+</h1>
                 <p className="text-gray-600 text-base sm:text-lg">
                   {day}, {month} {date}, {year}
                 </p>
               </div>
 
               {/* Subject Selection */}
-              {todaySchedule.length > 0 && (
+              {todaySchedule.length > 0 ? (
                 <div className="flex flex-col gap-2 mb-4">
                   <label className="text-sm font-medium text-gray-700">Select Lecture:</label>
                   <select 
                     value={selectedTimetable || ''}
-                    onChange={(e) => {
-                      const timetableId = parseInt(e.target.value);
-                      const lecture = todaySchedule.find(l => l.timetable_id === timetableId);
-                      if (lecture) {
-                        setSelectedTimetable(timetableId);
-                        setSelectedSubject(lecture.subject_id);
-                      }
-                    }}
+                    onChange={handleLectureChange}
+                    disabled={loading}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-md"
                   >
                     <option value="">Select a lecture</option>
-                    {todaySchedule.map(lecture => (
+                    {todaySchedule.map((lecture) => (
                       <option key={lecture.timetable_id} value={lecture.timetable_id}>
-                        Lecture {lecture.lecture_no} - {lecture.subject_name}
+                        {lecture.lecture_type === 'LECTURE' ? 'Lecture' : 'Practical'} {lecture.lecture_no} - {lecture.subject_name} 
+                        ({lecture.year} {lecture.branch} {lecture.batch_name ? `- ${lecture.batch_name}` : ''})
                       </option>
                     ))}
                   </select>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-700">
+                        No lectures scheduled for today.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -246,13 +357,13 @@ function Attendance() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="px-3 sm:px-4 py-2 border border-gray-300 w-full sm:w-[300px] lg:w-[350px] lg:h-[40px] rounded-lg lg:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-lg lg:border-2 lg:border-blue-300"
                   />
-                  <button 
-                    onClick={saveAllAttendance}
-                    disabled={saving || isSubmitted}
-                    className="bg-blue-600 flex items-center justify-center text-white px-4 sm:px-6 lg:px-8 py-2 lg:py-2.5 rounded-lg lg:rounded-xl hover:bg-blue-700 transition-colors active:scale-95 duration-200 cursor-pointer text-base sm:text-lg w-full sm:w-auto lg:h-[40px] lg:font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? 'Saving...' : isSubmitted ? 'Submitted' : 'Save '}
-                  </button>
+                <button 
+  onClick={saveAllAttendance}
+  disabled={saving || submittedTimetables[selectedTimetable]}
+  className="bg-blue-600 flex items-center justify-center text-white px-4 sm:px-6 lg:px-8 py-2 lg:py-2.5 rounded-lg lg:rounded-xl hover:bg-blue-700 transition-colors active:scale-95 duration-200 cursor-pointer text-base sm:text-lg w-full sm:w-auto lg:h-[40px] lg:font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  {saving ? 'Saving...' : submittedTimetables[selectedTimetable] ? 'Submitted' : 'Save '}
+</button>
                 </div>
               </div>
             </div>
@@ -314,7 +425,7 @@ function Attendance() {
                               <button
                                 key={type}
                                 onClick={() => markAttendance(student.student_rollno, type)}
-                                disabled={isSubmitted}
+                                disabled={submittedTimetables[selectedTimetable]}
                                 className={`px-2 sm:px-3 py-1 text-white text-xs sm:text-base lg:text-lg rounded active:scale-95 duration-70 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                                   type === "Present" ? "bg-green-300 hover:bg-green-700" : type === "Late" ? "bg-yellow-300 hover:bg-yellow-700" : "bg-red-300 hover:bg-red-700"
                                 }`}

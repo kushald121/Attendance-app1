@@ -27,9 +27,13 @@ function TeacherTimetable() {
 
   const fetchTimetable = async () => {
     try {
-      const response = await api.get('/timetable?class_name=SE');
+      const response = await api.get('/timetable/teacher/weekly-timetable');
       if (response.data.success) {
-        setTimetableData(response.data.data);
+        const transformedData = {
+          timetable: response.data.timetable,
+          timeSlots: response.data.timeSlots
+        };
+        setTimetableData(transformedData);
       }
     } catch (error) {
       console.error('Error fetching timetable:', error);
@@ -40,11 +44,16 @@ function TeacherTimetable() {
 
   const getSubjectForSlot = (day, lectureNo) => {
     if (!timetableData?.timetable[day]) return null;
-    return timetableData.timetable[day][lectureNo] || null;
-  };
-
-  const isMySubject = (subject) => {
-    return subject && subject.teacher_id === user?.id;
+    const slot = timetableData.timetable[day][lectureNo];
+    if (!slot) return null;
+    
+    return {
+      subject_name: slot.subject,
+      class_name: slot.class,
+      type: slot.type,
+      batch: slot.batch,
+      time: slot.time
+    };
   };
 
   if (loading) {
@@ -68,10 +77,10 @@ function TeacherTimetable() {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl sm:text-2xl lg:text-3xl font-bold text-black">
-                  Class Timetable - SE
+                  My Weekly Timetable
                 </h1>
                 <p className="text-gray-600 text-base sm:text-lg">
-                  Room No. C-611 | Class Advisor: Dr. Smita A. Attarde
+                  {user?.name} | {user?.designation}
                 </p>
               </div>
             </div>
@@ -114,24 +123,22 @@ function TeacherTimetable() {
                         
                         return (
                           <td key={slot.lecture} className={`border border-gray-300 p-2 text-center ${
-                            subject ? (isMySubject(subject) ? 'bg-green-50 border-green-300' : 'bg-gray-50') : ''
+                            subject ? 'bg-green-50 border-green-300' : 'bg-gray-50'
                           }`}>
                             {subject ? (
                               <div className="text-xs">
-                                <div className={`font-semibold ${isMySubject(subject) ? 'text-green-800' : 'text-gray-800'}`}>
+                                <div className="font-semibold text-green-800">
                                   {subject.subject_name}
                                 </div>
-                                <div className={`${isMySubject(subject) ? 'text-green-600' : 'text-gray-600'}`}>
-                                  {subject.teacher_name}
+                                <div className="text-green-600">
+                                  {subject.class_name} {subject.batch ? `(${subject.batch})` : ''}
                                 </div>
-                                {isMySubject(subject) && (
-                                  <div className="mt-1 inline-block px-2 py-1 bg-green-200 text-green-800 rounded-full text-xs">
-                                    Your Class
-                                  </div>
-                                )}
+                                <div className="mt-1 inline-block px-2 py-1 bg-green-200 text-green-800 rounded-full text-xs">
+                                  {subject.type}
+                                </div>
                               </div>
                             ) : (
-                              <div className="text-gray-400 text-xs">Free</div>
+                              <div className="text-gray-400">Free</div>
                             )}
                           </td>
                         );
@@ -152,30 +159,13 @@ function TeacherTimetable() {
                 <span className="text-sm">Your Classes</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-gray-50 border border-gray-300 rounded"></div>
-                <span className="text-sm">Other Classes</span>
-              </div>
-              <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-yellow-50 border border-gray-300 rounded"></div>
                 <span className="text-sm">Break Time</span>
               </div>
-            </div>
-          </div>
-
-          {/* Subject Legend */}
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h3 className="font-semibold text-lg mb-3">Subject Abbreviations</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-              <div><strong>MCS:</strong> Mathematics for Computer Science</div>
-              <div><strong>COA:</strong> Computer Organization and Architecture</div>
-              <div><strong>AOA:</strong> Analysis of Algorithm</div>
-              <div><strong>OE-I:</strong> Open Elective-I: Indian Constitution</div>
-              <div><strong>EFM:</strong> Entrepreneurship & Financial Management</div>
-              <div><strong>E&S:</strong> Entrepreneurship & Sustainability</div>
-              <div><strong>FSJP:</strong> Full Stack Java Programming</div>
-              <div><strong>COAL:</strong> Computer Organization Lab</div>
-              <div><strong>AOAL:</strong> Analysis of Algorithm Lab</div>
-              <div><strong>FSJPL:</strong> Full Stack Java Programming Lab</div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-gray-50 border border-gray-300 rounded"></div>
+                <span className="text-sm">Free Period</span>
+              </div>
             </div>
           </div>
         </div>
