@@ -11,14 +11,15 @@ function StudentTimetable() {
   const { user } = useAuth();
   
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const timeSlots = [
+ const timeSlots = [
     { lecture: 1, time: '9:30-10:30' },
     { lecture: 2, time: '10:30-11:30' },
     { lecture: 3, time: '11:30-12:30' },
-    { lecture: 4, time: '1:00-2:00' },
-    { lecture: 5, time: '2:00-3:00' },
-    { lecture: 6, time: '3:00-4:00' },
-    { lecture: 7, time: '4:00-4:30' }
+    { lecture: 4, time: '12:30-1:00' },
+    { lecture: 5, time: '1:00-2:00' },
+    { lecture: 6, time: '2:00-3:00' },
+    { lecture: 7, time: '3:00-4:00' },
+    
   ];
 
   useEffect(() => {
@@ -66,10 +67,11 @@ function StudentTimetable() {
       { lecture: 1, start: 9 * 60 + 30, end: 10 * 60 + 30 }, // 9:30-10:30
       { lecture: 2, start: 10 * 60 + 30, end: 11 * 60 + 30 }, // 10:30-11:30
       { lecture: 3, start: 11 * 60 + 30, end: 12 * 60 + 30 }, // 11:30-12:30
-      { lecture: 4, start: 13 * 60, end: 14 * 60 }, // 1:00-2:00
-      { lecture: 5, start: 14 * 60, end: 15 * 60 }, // 2:00-3:00
-      { lecture: 6, start: 15 * 60, end: 16 * 60 }, // 3:00-4:00
-      { lecture: 7, start: 16 * 60, end: 16 * 60 + 30 } // 4:00-4:30
+      { lecture: 4, start: 12 * 60 + 30, end: 13 * 60 + 30 }, // 12:30-1:30
+      { lecture: 5, start: 13 * 60, end: 14 * 60 }, // 1:00-2:00
+      { lecture: 6, start: 14 * 60, end: 15 * 60 }, // 2:00-3:00
+      { lecture: 7, start: 15 * 60, end: 16 * 60 }, // 3:00-4:00
+    
     ];
     
     for (const schedule of lectureSchedule) {
@@ -164,7 +166,7 @@ function StudentTimetable() {
                       </td>
                       {timeSlots.map((slot) => {
                         const subject = getSubjectForSlot(day, slot.lecture);
-                        const isBreak = slot.lecture === 3 && day !== 'Friday'; // Break after 3rd lecture except Friday
+                        const isBreak = slot.lecture === 4  // Break after 3rd lecture except Friday
                         const isCurrent = isCurrentLecture(day, slot.lecture);
                         
                         if (isBreak && !subject) {

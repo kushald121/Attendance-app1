@@ -15,10 +15,11 @@ function TeacherTimetable() {
     { lecture: 1, time: '9:30-10:30' },
     { lecture: 2, time: '10:30-11:30' },
     { lecture: 3, time: '11:30-12:30' },
-    { lecture: 4, time: '1:00-2:00' },
-    { lecture: 5, time: '2:00-3:00' },
-    { lecture: 6, time: '3:00-4:00' },
-    { lecture: 7, time: '4:00-4:30' }
+    { lecture: 4, time: '12:30-1:00' },
+    { lecture: 5, time: '1:00-2:00' },
+    { lecture: 6, time: '2:00-3:00' },
+    { lecture: 7, time: '3:00-4:00' },
+    
   ];
 
   useEffect(() => {
@@ -111,7 +112,7 @@ function TeacherTimetable() {
                       </td>
                       {timeSlots.map((slot) => {
                         const subject = getSubjectForSlot(day, slot.lecture);
-                        const isBreak = slot.lecture === 3 && day !== 'Friday'; // Break after 3rd lecture except Friday
+                        const isBreak = slot.lecture === 4  // Break after 3rd lecture except Friday
                         
                         if (isBreak && !subject) {
                           return (
@@ -122,20 +123,48 @@ function TeacherTimetable() {
                         }
                         
                         return (
-                          <td key={slot.lecture} className={`border border-gray-300 p-2 text-center ${
-                            subject ? 'bg-green-50 border-green-300' : 'bg-gray-50'
-                          }`}>
+                         <td
+                          key={slot.lecture}
+                             className={`border p-2 text-center ${
+                                  subject
+                                  ? subject.type === 'PRACTICAL' || subject.type === 'PRACT'
+                                    ? 'bg-blue-50 border-blue-300'
+                                    : 'bg-green-50 border-green-300'
+                                  : 'bg-gray-50 border-gray-300'
+                              }`}
+>
                             {subject ? (
                               <div className="text-xs">
-                                <div className="font-semibold text-green-800">
-                                  {subject.subject_name}
+                               <div
+                               className={`font-semibold ${
+                                   subject.type === 'PRACTICAL' || subject.type === 'PRACT'
+                                   ? 'text-blue-800'
+                                   : 'text-green-800'
+                               }`}
+                               >
+                             {subject.subject_name}
                                 </div>
-                                <div className="text-green-600">
-                                  {subject.class_name} {subject.batch ? `(${subject.batch})` : ''}
+
+                              <div
+                        className={`${
+                    subject.type === 'PRACTICAL' || subject.type === 'PRACT'
+                      ? 'text-blue-600'
+                      : 'text-green-600'
+                               }`}
+                               >
+                               {subject.class_name} {subject.batch ? `(${subject.batch})` : ''}
+                               </div>
+
+                              <div
+                                className={`mt-1 inline-block px-2 py-1 rounded-full text-xs ${
+                                  subject.type === 'PRACTICAL' || subject.type === 'PRACT'
+                                    ? 'bg-blue-200 text-blue-800'
+                                    : 'bg-green-200 text-green-800'
+                                }`}
+                              >
+                                      {subject.type}
                                 </div>
-                                <div className="mt-1 inline-block px-2 py-1 bg-green-200 text-green-800 rounded-full text-xs">
-                                  {subject.type}
-                                </div>
+
                               </div>
                             ) : (
                               <div className="text-gray-400">Free</div>
@@ -152,11 +181,15 @@ function TeacherTimetable() {
 
           {/* Legend */}
           <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h3 className="font-semibold text-lg mb-3">Legend</h3>
+            <h3 className="font-semibold text-lg mb-3">Info</h3>
             <div className="flex flex-wrap gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-green-50 border border-green-300 rounded"></div>
-                <span className="text-sm">Your Classes</span>
+                <span className="text-sm">Lectures</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-50 border border-blue-300 rounded"></div>
+                <span className="text-sm">Practical</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-yellow-50 border border-gray-300 rounded"></div>

@@ -74,7 +74,7 @@ const Login = () => {
       });
     } else {
       setFormData({
-        email: 'krishna.singal@ltce.in',
+        email: 'dipikamatke@ltce.in',
         password: 'Teacher123'
       });
     }
